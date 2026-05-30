@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         LSS Karte
 // @namespace    http://tampermonkey.net/
-// @version      3.0.5
+// @version      3.0.2
 // @description  Karte mit Bundesländer, Landkreise und Städte.
 // @author       Jalibu, LennyPegauOfficial & AI
 // @match        https://www.leitstellenspiel.de/
