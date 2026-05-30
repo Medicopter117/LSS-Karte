@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         LSS Karte
 // @namespace    http://tampermonkey.net/
-// @version      3.0.2
-// @description  Karte mit Bundesländer, Landkreise und Städte.
+// @version      3.0.0
+// @description  Karte mit Bundesländer, Landkreise (unter Regierungbezirke) und Verwaltungsgemeinschaftes und Städte.
 // @author       Jalibu, LennyPegauOfficial & AI
 // @match        https://www.leitstellenspiel.de/
 // @match        https://www.leitstellenspiel.de/profile/*
@@ -11,10 +11,10 @@
 // @grant        none
 // ==/UserScript==
 
-(function() {
+(function () {
     'use strict';
     const STORAGE_PREFIX = 'LSS_KREIS_LVL_';
-    const BASE_URL = "https://raw.githubusercontent.com/Medicopter117/LSS-Karte/refs/heads/master/deutschland/";
+    const BASE_URL = "https://raw.githubusercontent.com/Medicopter117/DispoPlus/refs/heads/master/deutschland/";
 
     const FILE_MAP = {
         1: "bundeslander.json",
@@ -22,30 +22,36 @@
         3: "stadte.json",
     };
 
-    $('head').append(`<style>
-        .lss-tab-nav { margin-bottom: 15px; border-bottom: 1px solid #ccc; padding-left: 0; list-style: none; display: flex; background: #333; }
-        .lss-tab-nav li { margin-bottom: -1px; }
-        .lss-tab-nav a { display: block; padding: 10px 15px; color: #fff; font-weight: bold; text-decoration: none; border-right: 1px solid #555; }
-        .lss-tab-nav li.active a { background: #555; color: #fff; border-bottom: 2px solid #f0ad4e; }
-        .tab-content-panel { display: none; }
-        .tab-content-panel.active { display: block; }
-        #kreise-openBtn { border-top: 1px solid #ccc; }
-    </style>`);
+    $('head').append($('<link rel="stylesheet" type="text/css" />').attr('href', 'https://cdn.rawgit.com/patosai/tree-multiselect/v2.4.1/dist/jquery.tree-multiselect.min.css'));
+    let style = `
+        <style>
+            .lss-tab-nav { margin-bottom: 15px; border-bottom: 1px solid #ccc; padding-left: 0; list-style: none; display: flex; background: #333; }
+            .lss-tab-nav li { margin-bottom: -1px; }
+            .lss-tab-nav a { display: block; padding: 10px 15px; color: #fff; font-weight: bold; text-decoration: none; border-right: 1px solid #555; }
+            .lss-tab-nav li.active a { background: #555; color: #fff; border-bottom: 2px solid #f0ad4e; }
+            .lss-tab-nav a:hover { background: #444; }
+            .tree-multiselect { background: #fff; color: #333; }
+            div.tree-multiselect>div.selected>div.item{background: #777; color: white;}
+            .tab-content-panel { display: none; }
+            .tab-content-panel.active { display: block; }
+        </style>
+    `;
+    $('head').append(style);
 
-    // Initialisierung des Buttons ohne Lag
-    let initInterval = setInterval(() => {
-        if ($('.leaflet-control-zoom').length > 0 && !$('#kreise-openBtn').length) {
-            $('.leaflet-control-zoom').append(`
-                <a id="kreise-openBtn" href="#" style="display: block; width: 26px; height: 26px; background-color: white; 
-                background-image: url('https://raw.githubusercontent.com/jalibu/LSHeat/master/icons8-germany-map-50.png'); 
-                background-size: 20px 20px; background-repeat: no-repeat; background-position: center; cursor: pointer;">
-                </a>
-            `);
-            clearInterval(initInterval);
+    var myStyle = { "weight": 2, "fillOpacity": 0.05 };
+
+    // Button oben links in die Zoom-Leiste integriert
+    let openBtn = '<a id="kreise-openBtn" class="leaflet-control-custom" href="#" style="display:block; width: 26px; height: 26px; background-color: white; background-image: url(https://raw.githubusercontent.com/jalibu/LSHeat/master/icons8-germany-map-50.png); background-size: 20px 20px; background-repeat: no-repeat; background-position: center; border-bottom: 1px solid #ccc; cursor:pointer;"></a>';
+
+    // Warte kurz, bis Leaflet die Steuerung erstellt hat
+    let checkInterval = setInterval(function() {
+        if ($('.leaflet-control-zoom').length) {
+            $('.leaflet-control-zoom').append(openBtn);
+            clearInterval(checkInterval);
         }
-    }, 1000);
+    }, 500);
 
-    $(document).on('click', '#kreise-openBtn', function(e) {
+    $(document).on('click', '#kreise-openBtn', function (e) {
         e.preventDefault();
         $('#kreise-modal').show();
         loadTabLevel(1);
@@ -83,7 +89,7 @@
         let panel = $(`#panel-lvl-${level}`);
         let fileName = FILE_MAP[level];
 
-        $.getJSON(BASE_URL + fileName, function(data) {
+        $.getJSON(BASE_URL + fileName, function (data) {
             let selected = JSON.parse(localStorage.getItem(STORAGE_PREFIX + level)) || [];
             let selectMarkup = `<select id="kreise-selection-lvl-${level}" multiple="multiple">`;
 
@@ -95,59 +101,84 @@
                 let kreis = feature.properties.NAME_3 || "";
                 let ort = feature.properties.NAME_4 || "";
 
-                let displayName = ort || kreis || bezirk || state;
+                let displayName = "";
                 let pathParts = [state];
-                if (level === 3 && bezirk && bezirk !== state) pathParts.push(bezirk);
-                if (level === 3 && kreis && kreis !== displayName) pathParts.push(kreis);
+
+                if (level === 1) {
+                    displayName = state;
+                    pathParts = ["Bundesländer"];
+                }
+                else if (level === 2) {
+                    displayName = bezirk || state;
+                }
+                else if (level === 3) {
+                    displayName = ort || kreis || "Unbekannter Ort";
+                    if (bezirk && bezirk !== state) pathParts.push(bezirk);
+                    if (kreis && kreis !== displayName) pathParts.push(kreis);
+                }
+
+                let sectionPath = pathParts.join('/').replace(/"/g, '&quot;');
+                displayName = displayName.replace(/"/g, '&quot;');
 
                 let gidLevel = level === 2 ? 2 : (level === 3 ? 4 : level);
-                let featureId = feature.properties[`GID_${gidLevel}`] || feature.id || Math.random();
+                let featureId = feature.properties[`GID_${gidLevel}`] || feature.id || Math.floor(Math.random() * 100000);
 
-                selectMarkup += `<option value="${featureId}" ${selected.indexOf('' + featureId) >= 0 ? 'selected' : ''} data-section="${pathParts.join('/')}">${displayName}</option>`;
+                if (selected.indexOf('' + featureId) >= 0) {
+                    selectMarkup += `<option value="${featureId}" selected="selected" data-section="${sectionPath}">${displayName}</option>`;
+                } else {
+                    selectMarkup += `<option value="${featureId}" data-section="${sectionPath}">${displayName}</option>`;
+                }
             }
 
             selectMarkup += `</select>`;
             panel.html(selectMarkup);
 
-            $.getScript("https://cdn.rawgit.com/patosai/tree-multiselect/v2.4.1/dist/jquery.tree-multiselect.min.js", function(){
-                $(`#kreise-selection-lvl-${level}`).treeMultiselect({searchable: true, startCollapsed: true});
+            $.getScript("https://cdn.rawgit.com/patosai/tree-multiselect/v2.4.1/dist/jquery.tree-multiselect.min.js", function () {
+                $(`#kreise-selection-lvl-${level}`).treeMultiselect({ searchable: true, startCollapsed: true });
             });
 
             loadedLevels[level] = true;
+        }).fail(function () {
+            panel.html(`<p style="color:red;">Fehler: Datei <b>${fileName}</b> konnte nicht geladen werden.</p>`);
         });
     }
 
-    // Beim Laden Grenzen auf Karte anzeigen
     for (let l = 1; l <= 3; l++) {
         let savedIds = JSON.parse(localStorage.getItem(STORAGE_PREFIX + l)) || [];
         if (savedIds.length > 0) {
-            $.getJSON(BASE_URL + FILE_MAP[l], function(data) {
+            $.getJSON(BASE_URL + FILE_MAP[l], function (data) {
                 let gidLevel = l === 2 ? 2 : (l === 3 ? 4 : l);
                 for (let feature of data.features) {
                     let featureId = feature.properties[`GID_${gidLevel}`] || feature.id;
                     if (savedIds.indexOf('' + featureId) >= 0) {
-                        L.geoJSON(feature, {style: { "weight": 2, "fillOpacity": 0.05 }}).addTo(map);
+                        L.geoJSON(feature, { style: myStyle }).addTo(map);
                     }
                 }
             });
         }
     }
 
-    $('.lss-tab-nav li').click(function(e) {
+    $('.lss-tab-nav li').click(function (e) {
         e.preventDefault();
         let lvl = $(this).data('tab');
+
         $('.lss-tab-nav li').removeClass('active');
         $(this).addClass('active');
+
         $('.tab-content-panel').removeClass('active');
         $(`#panel-lvl-${lvl}`).addClass('active');
+
         loadTabLevel(lvl);
     });
 
-    $('.kreise-close').click(function(){ $('#kreise-modal').hide(); });
+    $('.kreise-close').click(function () { $('#kreise-modal').hide(); });
 
-    $('#kreise-btn-save').click(function(){
+    $('#kreise-btn-save').click(function () {
         for (let l = 1; l <= 3; l++) {
-            if (loadedLevels[l]) localStorage.setItem(STORAGE_PREFIX + l, JSON.stringify($(`#kreise-selection-lvl-${l}`).val() || []));
+            if (loadedLevels[l]) {
+                let val = $(`#kreise-selection-lvl-${l}`).val() || [];
+                localStorage.setItem(STORAGE_PREFIX + l, JSON.stringify(val));
+            }
         }
         location.reload();
     });
