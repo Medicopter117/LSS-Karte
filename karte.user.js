@@ -2,7 +2,7 @@
 // @name         LSS Karte
 // @namespace    http://tampermonkey.net/
 // @version      3.0.1
-// @description  Karte mit Bundesländer, Landkreise und Städte (Button in Zoom-Leiste).
+// @description  Karte mit Bundesländer, Landkreise und Städte.
 // @author       Jalibu, LennyPegauOfficial & AI
 // @match        https://www.leitstellenspiel.de/
 // @match        https://www.leitstellenspiel.de/profile/*
