@@ -14,7 +14,7 @@
 (function() {
     'use strict';
     const STORAGE_PREFIX = 'LSS_KREIS_LVL_';
-    const BASE_URL = "https://raw.githubusercontent.com/Medicopter117/DispoPlus/refs/heads/master/deutschland/";
+    const BASE_URL = "https://raw.githubusercontent.com/Medicopter117/LSS-Karte/refs/heads/master/deutschland/";
 
     const FILE_MAP = {
         1: "bundeslander.json",
