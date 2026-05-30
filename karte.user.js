@@ -2,7 +2,7 @@
 // @name         LSS Karte
 // @namespace    http://tampermonkey.net/
 // @version      3.0.1
-// @description  Karte mit Bundesländer, Landkreise und Städte (Button oben links).
+// @description  Karte mit Bundesländer, Landkreise und Städte (Button in Zoom-Leiste).
 // @author       Jalibu, LennyPegauOfficial & AI
 // @match        https://www.leitstellenspiel.de/
 // @match        https://www.leitstellenspiel.de/profile/*
@@ -40,11 +40,24 @@
 
     var myStyle = { "weight": 2, "fillOpacity": 0.05 };
 
-    // Button Positionierung oben links mit Abstand unter der Menüleiste
-    let openBtn = '<div id="kreise-openBtn" class="leaflet-bar leaflet-control leaflet-control-custom map-expand-button" style="margin-top: 80px; margin-left: 10px; background-image: url(https://raw.githubusercontent.com/jalibu/LSHeat/master/icons8-germany-map-50.png); background-color: white; width: 26px; height: 26px; cursor:pointer; background-size: contain;"></div>';
-    $('.leaflet-top.leaflet-left').append(openBtn);
+    // Button direkt in den Zoom-Container einfügen
+    let openBtn = `<a id="kreise-openBtn" class="leaflet-control-custom" href="#"
+        style="display: block; width: 26px; height: 26px; background-color: white;
+        background-image: url('https://raw.githubusercontent.com/jalibu/LSHeat/master/icons8-germany-map-50.png');
+        background-size: 20px 20px; background-repeat: no-repeat; background-position: center;
+        border-bottom: 1px solid #ccc; cursor: pointer;">
+    </a>`;
 
-    $('#kreise-openBtn').click(function(){
+    // Warten, bis der Zoom-Container existiert, dann einfügen
+    let checkInterval = setInterval(function() {
+        if ($('.leaflet-control-zoom').length) {
+            $('.leaflet-control-zoom').append(openBtn);
+            clearInterval(checkInterval);
+        }
+    }, 500);
+
+    $(document).on('click', '#kreise-openBtn', function(e){
+        e.preventDefault();
         $('#kreise-modal').show();
         loadTabLevel(1);
     });
