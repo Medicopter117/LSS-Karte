@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         LSS Karte
 // @namespace    http://tampermonkey.net/
-// @version      3.0.0
-// @description  Karte mit Bundesländer, Landkreise (unter Regierungbezirke) und Verwaltungsgemeinschaftes und Städte.
+// @version      3.0.1
+// @description  Karte mit Bundesländer, Landkreise und Städte (Button oben links).
 // @author       Jalibu, LennyPegauOfficial & AI
 // @match        https://www.leitstellenspiel.de/
 // @match        https://www.leitstellenspiel.de/profile/*
@@ -11,16 +11,15 @@
 // @grant        none
 // ==/UserScript==
 
-(function () {
+(function() {
     'use strict';
     const STORAGE_PREFIX = 'LSS_KREIS_LVL_';
     const BASE_URL = "https://raw.githubusercontent.com/Medicopter117/DispoPlus/refs/heads/master/deutschland/";
 
-    // Korrigiertes Mapping auf die JSON-Dateien
     const FILE_MAP = {
         1: "bundeslander.json",
-        2: "regierungbezirke.json", // Tab 2 lädt jetzt die Regierungsbezirke
-        3: "stadte.json", // Tab 3 lädt die Städte & Gemeinden
+        2: "regierungbezirke.json",
+        3: "stadte.json",
     };
 
     $('head').append($('<link rel="stylesheet" type="text/css" />').attr('href', 'https://cdn.rawgit.com/patosai/tree-multiselect/v2.4.1/dist/jquery.tree-multiselect.min.css'));
@@ -41,10 +40,11 @@
 
     var myStyle = { "weight": 2, "fillOpacity": 0.05 };
 
-    let openBtn = '<div id="kreise-openBtn" class="leaflet-bar leaflet-control leaflet-control-custom map-expand-button" style="background-image: url(https://raw.githubusercontent.com/jalibu/LSHeat/master/icons8-germany-map-50.png); background-color: white; width: 26px; height: 26px; cursor:pointer;"></div>';
-    $('.leaflet-bottom.leaflet-left').append(openBtn);
+    // Button Positionierung oben links mit Abstand unter der Menüleiste
+    let openBtn = '<div id="kreise-openBtn" class="leaflet-bar leaflet-control leaflet-control-custom map-expand-button" style="margin-top: 80px; margin-left: 10px; background-image: url(https://raw.githubusercontent.com/jalibu/LSHeat/master/icons8-germany-map-50.png); background-color: white; width: 26px; height: 26px; cursor:pointer; background-size: contain;"></div>';
+    $('.leaflet-top.leaflet-left').append(openBtn);
 
-    $('#kreise-openBtn').click(function () {
+    $('#kreise-openBtn').click(function(){
         $('#kreise-modal').show();
         loadTabLevel(1);
     });
@@ -81,7 +81,7 @@
         let panel = $(`#panel-lvl-${level}`);
         let fileName = FILE_MAP[level];
 
-        $.getJSON(BASE_URL + fileName, function (data) {
+        $.getJSON(BASE_URL + fileName, function(data) {
             let selected = JSON.parse(localStorage.getItem(STORAGE_PREFIX + level)) || [];
             let selectMarkup = `<select id="kreise-selection-lvl-${level}" multiple="multiple">`;
 
@@ -101,11 +101,9 @@
                     pathParts = ["Bundesländer"];
                 }
                 else if (level === 2) {
-                    // Auslesen der Regierungsbezirke (NAME_2)
                     displayName = bezirk || state;
                 }
                 else if (level === 3) {
-                    // Städte & Gemeinden (Nutzt stadte.json mit NAME_4)
                     displayName = ort || kreis || "Unbekannter Ort";
                     if (bezirk && bezirk !== state) pathParts.push(bezirk);
                     if (kreis && kreis !== displayName) pathParts.push(kreis);
@@ -114,7 +112,6 @@
                 let sectionPath = pathParts.join('/').replace(/"/g, '&quot;');
                 displayName = displayName.replace(/"/g, '&quot;');
 
-                // GID Zuordnung anpassen: Tab 2 nutzt GID_2 (Bezirk), Tab 3 nutzt GID_4 (Stadt)
                 let gidLevel = level === 2 ? 2 : (level === 3 ? 4 : level);
                 let featureId = feature.properties[`GID_${gidLevel}`] || feature.id || Math.floor(Math.random() * 100000);
 
@@ -128,33 +125,32 @@
             selectMarkup += `</select>`;
             panel.html(selectMarkup);
 
-            $.getScript("https://cdn.rawgit.com/patosai/tree-multiselect/v2.4.1/dist/jquery.tree-multiselect.min.js", function () {
-                $(`#kreise-selection-lvl-${level}`).treeMultiselect({ searchable: true, startCollapsed: true });
+            $.getScript("https://cdn.rawgit.com/patosai/tree-multiselect/v2.4.1/dist/jquery.tree-multiselect.min.js", function(){
+                $(`#kreise-selection-lvl-${level}`).treeMultiselect({searchable: true, startCollapsed: true});
             });
 
             loadedLevels[level] = true;
-        }).fail(function () {
+        }).fail(function() {
             panel.html(`<p style="color:red;">Fehler: Datei <b>${fileName}</b> konnte nicht geladen werden.</p>`);
         });
     }
 
-    // Gespeicherte Grenzen beim Laden anzeigen
     for (let l = 1; l <= 3; l++) {
         let savedIds = JSON.parse(localStorage.getItem(STORAGE_PREFIX + l)) || [];
         if (savedIds.length > 0) {
-            $.getJSON(BASE_URL + FILE_MAP[l], function (data) {
+            $.getJSON(BASE_URL + FILE_MAP[l], function(data) {
                 let gidLevel = l === 2 ? 2 : (l === 3 ? 4 : l);
                 for (let feature of data.features) {
                     let featureId = feature.properties[`GID_${gidLevel}`] || feature.id;
                     if (savedIds.indexOf('' + featureId) >= 0) {
-                        L.geoJSON(feature, { style: myStyle }).addTo(map);
+                        L.geoJSON(feature, {style: myStyle}).addTo(map);
                     }
                 }
             });
         }
     }
 
-    $('.lss-tab-nav li').click(function (e) {
+    $('.lss-tab-nav li').click(function(e) {
         e.preventDefault();
         let lvl = $(this).data('tab');
 
@@ -167,9 +163,9 @@
         loadTabLevel(lvl);
     });
 
-    $('.kreise-close').click(function () { $('#kreise-modal').hide(); });
+    $('.kreise-close').click(function(){ $('#kreise-modal').hide(); });
 
-    $('#kreise-btn-save').click(function () {
+    $('#kreise-btn-save').click(function(){
         for (let l = 1; l <= 3; l++) {
             if (loadedLevels[l]) {
                 let val = $(`#kreise-selection-lvl-${l}`).val() || [];
